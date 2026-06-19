@@ -30141,6 +30141,9 @@ async function run() {
         // ── Read inputs ───────────────────────────────────────────────────────
         const apiKey = core.getInput("octopus-api-key") || undefined;
         const mode = (core.getInput("mode") || "full").toLowerCase();
+        if (mode !== "full" && mode !== "trigger") {
+            core.warning(`Unknown mode "${mode}"; expected "full" or "trigger". Falling back to "full".`);
+        }
         // "trigger" mode posts no token and grants no permissions; the server reviews and
         // posts as the Octopus bot account. github-token is only needed in "full" mode.
         const githubToken = core.getInput("github-token", { required: mode !== "trigger" });
@@ -30194,6 +30197,10 @@ async function run() {
                     core.warning(`Octopus trigger failed: ${err instanceof Error ? err.message : String(err)}`);
                 }
             }
+            // Set outputs so downstream steps that read them don't get empty strings.
+            // The review is posted asynchronously by the server, so the count isn't known here.
+            core.setOutput("findings-count", "0");
+            core.setOutput("summary", "Octopus review triggered; posted asynchronously by the Octopus bot account.");
             return;
         }
         // ── Fetch PR diff ─────────────────────────────────────────────────────
