@@ -30140,7 +30140,13 @@ async function run() {
         }
         // ── Read inputs ───────────────────────────────────────────────────────
         const apiKey = core.getInput("octopus-api-key") || undefined;
-        const githubToken = core.getInput("github-token", { required: true });
+        const mode = (core.getInput("mode") || "full").toLowerCase();
+        if (mode !== "full" && mode !== "trigger") {
+            core.warning(`Unknown mode "${mode}"; expected "full" or "trigger". Falling back to "full".`);
+        }
+        // "trigger" mode posts no token and grants no permissions; the server reviews and
+        // posts as the Octopus bot account. github-token is only needed in "full" mode.
+        const githubToken = core.getInput("github-token", { required: mode !== "trigger" });
         const apiUrl = core.getInput("api-url") || "https://octopus-review.ai";
         const forceReindex = core.getInput("force-reindex") === "true";
         const reindexThresholdHours = parseInt(core.getInput("reindex-threshold-hours") || "24", 10);
@@ -30164,6 +30170,38 @@ async function run() {
                 "on the `pull_request` event, so Octopus may be unable to post its review. " +
                 "If comments do not appear, see " +
                 "https://octopus-review.ai/docs/github-action#fork-pull-requests");
+        }
+        // ── Trigger mode: notify the server and exit (no token, no posting) ────
+        if (mode === "trigger") {
+            core.info("Running in trigger mode: notifying Octopus to review and post as the bot account.");
+            try {
+                const result = await (0, octopus_client_1.triggerOssReview)(apiUrl, { owner, repo, prNumber, headSha });
+                if (result.status === "skipped") {
+                    if (result.reason === "no-consent-file") {
+                        core.warning("Octopus is not enabled for this repo. Add a `.github/octopus.yml` file to opt in. " +
+                            "See https://octopus-review.ai/docs/github-action#fork-pull-requests");
+                    }
+                    else {
+                        core.info(`Octopus skipped this PR (${result.reason ?? "unknown"}).`);
+                    }
+                }
+                else {
+                    core.info(`Octopus review ${result.status}${result.jobId ? ` (job ${result.jobId})` : ""}.`);
+                }
+            }
+            catch (err) {
+                if (err instanceof octopus_client_1.OctopusApiError) {
+                    core.warning(`Octopus trigger failed (${err.status}): ${err.message}`);
+                }
+                else {
+                    core.warning(`Octopus trigger failed: ${err instanceof Error ? err.message : String(err)}`);
+                }
+            }
+            // Set outputs so downstream steps that read them don't get empty strings.
+            // The review is posted asynchronously by the server, so the count isn't known here.
+            core.setOutput("findings-count", "0");
+            core.setOutput("summary", "Octopus review triggered; posted asynchronously by the Octopus bot account.");
+            return;
         }
         // ── Fetch PR diff ─────────────────────────────────────────────────────
         const octokit = github.getOctokit(githubToken);
@@ -30399,6 +30437,7 @@ run();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.OctopusApiError = void 0;
 exports.requestReview = requestReview;
+exports.triggerOssReview = triggerOssReview;
 exports.pollReview = pollReview;
 async function requestReview(apiUrl, apiKey, params) {
     const headers = {
@@ -30410,6 +30449,23 @@ async function requestReview(apiUrl, apiKey, params) {
     const res = await fetch(`${apiUrl}/api/github-action/review`, {
         method: "POST",
         headers,
+        body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: "Unknown error" }));
+        const message = body.error ?? `HTTP ${res.status}`;
+        throw new OctopusApiError(message, res.status);
+    }
+    return res.json();
+}
+/**
+ * Trigger-only mode: tell the server to review this PR and post the result as the
+ * Octopus bot account. Sends no diff and no token — the workflow grants no permissions.
+ */
+async function triggerOssReview(apiUrl, params) {
+    const res = await fetch(`${apiUrl}/api/oss-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(params),
     });
     if (!res.ok) {
