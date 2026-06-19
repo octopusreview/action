@@ -80,6 +80,35 @@ export async function requestReview(
   return res.json() as Promise<InitialReviewResponse>;
 }
 
+export interface TriggerResponse {
+  status: "queued" | "deduped" | "skipped";
+  jobId?: string;
+  reason?: string;
+}
+
+/**
+ * Trigger-only mode: tell the server to review this PR and post the result as the
+ * Octopus bot account. Sends no diff and no token — the workflow grants no permissions.
+ */
+export async function triggerOssReview(
+  apiUrl: string,
+  params: { owner: string; repo: string; prNumber: number; headSha: string },
+): Promise<TriggerResponse> {
+  const res = await fetch(`${apiUrl}/api/oss-review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: "Unknown error" }));
+    const message = (body as { error?: string }).error ?? `HTTP ${res.status}`;
+    throw new OctopusApiError(message, res.status);
+  }
+
+  return res.json() as Promise<TriggerResponse>;
+}
+
 export interface PollResponseInFlight {
   status: "indexing" | "reviewing";
   jobId: string;
