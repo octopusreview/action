@@ -170,6 +170,8 @@ No. Your code is used temporarily for indexing (creating vector embeddings) and 
 **How does the community tier work?**
 Public repositories can use Octopus for free with no signup. A community organization is automatically created per GitHub owner (user or org). The daily review limit is 5 reviews per repository.
 
+Community review job IDs allow access to the server's unauthenticated polling endpoint. This revision masks queued IDs in Actions logs, but the published `v1` and `v1.0.0` tags, existing logs, and already issued IDs remain affected. The server endpoint still requires a separate fix.
+
 **Why are reviews not posted on pull requests from forks?**
 GitHub makes `GITHUB_TOKEN` read-only for fork pull requests on the `pull_request` event, so the action cannot create review comments. Switch the trigger to `pull_request_target`, or install the Octopus GitHub App. See [Fork pull requests](#fork-pull-requests) above.
 
