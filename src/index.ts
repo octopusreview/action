@@ -111,8 +111,9 @@ async function run(): Promise<void> {
     let result: ReviewResponseCompleted;
 
     if (initial.status === "queued") {
+      core.setSecret(initial.jobId);
       core.info(
-        `Repository indexing in background (jobId=${initial.jobId}${initial.existing ? ", existing job" : ""}). Polling for result...`,
+        `Repository indexing in background${initial.existing ? " (existing job)" : ""}. Polling for result...`,
       );
 
       // Show progress in the (single) Octopus summary comment — find-or-create.
@@ -295,7 +296,7 @@ async function pollUntilDone(
     }
 
     if (polled.status !== lastStatus) {
-      core.info(`Job ${jobId} status: ${polled.status}`);
+      core.info(`Review job status: ${polled.status}`);
       lastStatus = polled.status;
     }
 
