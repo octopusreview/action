@@ -30202,7 +30202,8 @@ async function run() {
         });
         let result;
         if (initial.status === "queued") {
-            core.info(`Repository indexing in background (jobId=${initial.jobId}${initial.existing ? ", existing job" : ""}). Polling for result...`);
+            core.setSecret(initial.jobId);
+            core.info(`Repository indexing in background${initial.existing ? " (existing job)" : ""}. Polling for result...`);
             // Show progress in the (single) Octopus summary comment — find-or-create.
             try {
                 await (0, summary_comment_1.postOrUpdateSummaryComment)({
@@ -30345,7 +30346,7 @@ async function pollUntilDone(apiUrl, jobId, repoFullName) {
             continue;
         }
         if (polled.status !== lastStatus) {
-            core.info(`Job ${jobId} status: ${polled.status}`);
+            core.info(`Review job status: ${polled.status}`);
             lastStatus = polled.status;
         }
         if (polled.status === "completed") {
