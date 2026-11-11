@@ -10,6 +10,10 @@ inputs:
   octopus-api-key:
     description: "Octopus API key (oct_*). Required for private repos. Optional for public repos (free community tier)."
     required: false
+  mode:
+    description: "'full' (default): action fetches the diff and posts the review with github-token. 'trigger': action only notifies Octopus (no token, no permissions); the server reviews and posts as the Octopus bot account."
+    required: false
+    default: "full"
   github-token:
     description: "GitHub token for repo access and posting reviews."
     required: false
